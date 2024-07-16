@@ -13,8 +13,17 @@ export async function spawn(
   const logger = getLogger();
   const version = await envVersionOr(0);
   const cmd = version >= 9 ? ['-S', ...args] : args;
+  const opts = Object.create(xterm);
+  opts.env = Object.assign({}, ...Object.keys(process.env)
+    .filter((key) => !isUndefined(process.env[key]))
+    .map((key) => ({ [key]: process.env[key] })));
+  Object.keys(socket.handshake.headers).forEach((hdr) => {
+    const hdrEnv = hdr.toUpperCase().replace(/[^A-Z0-9]+/g, '_');
+    if (opts.env[hdrEnv] === undefined)
+      opts.env[hdrEnv] = socket.handshake.headers[hdr];
+  });
   logger.debug('Spawning PTY', { cmd });
-  const term = pty.spawn('/usr/bin/env', cmd, xterm);
+  const term = pty.spawn('/usr/bin/env', cmd, opts);
   const { pid } = term;
   const address = args[0] === 'ssh' ? args[1] : 'localhost';
   logger.info('Process Started on behalf of user', { pid, address });
